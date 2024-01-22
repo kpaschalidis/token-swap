@@ -1,0 +1,50 @@
+{
+  "name": "token-migration-tool",
+  "version": "0.0.1",
+  "private": true,
+  "browserslist": [
+    ">0.3%",
+    "not ie 11",
+    "not dead",
+    "not op_mini all"
+  ],
+  "engines": {
+    "node": "^12.14.1",
+    "npm": "^6.13.4"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@daisypayments/react-metamask": "^0.4.1",
+    "@material-ui/core": "4.9.0",
+    "@material-ui/icons": "^4.9.1",
+    "bignumber.js": "^9.0.0",
+    "clsx": "^1.0.4",
+    "next": "9.2.1",
+    "react": "16.13.1",
+    "react-dom": "16.13.1",
+    "react-pdf": "^4.2.0",
+    "remove-trailing-zeros": "^1.0.3",
+    "typescript": "^3.7.5",
+    "web3": "^1.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^13.7.2",
+    "@types/react": "^16.9.16",
+    "@types/react-dom": "^16.9.4",
+    "@typescript-eslint/eslint-plugin": "^2.11.0",
+    "@typescript-eslint/parser": "^2.11.0",
+    "eslint": "^6.7.2",
+    "eslint-config-prettier": "^6.7.0",
+    "eslint-plugin-prettier": "^3.1.1",
+    "eslint-plugin-react": "^7.17.0",
+    "eslint-plugin-react-hooks": "^2.3.0",
+    "file-loader": "^6.0.0",
+    "next-images": "^1.4.0",
+    "prettier": "^1.19.1",
+    "typescript": "3.7.5"
+  }
+}

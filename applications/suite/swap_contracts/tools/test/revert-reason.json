@@ -1,0 +1,17 @@
+{
+  "onlyOwner": "Ownable: caller is not the owner",
+  "onlyRoleManager": "AccessControl: sender must be an admin to grant",
+  "capExceeded": "ERC20Capped: cap exceeded",
+  "swapExceedBalance": "Swap amount is bigger than the balance",
+  "swapExceedAllowance": "Swap amount is bigger than the allowance",
+  "noTokenToSwap": "No token to swap",
+  "tokenHolderOrOwner": "Either the owner or a tokenholder can swapAllToken",
+  "transferExceedBalance": "ERC20: transfer amount exceeds balance",
+  "transferExceedAllowance": "ERC20: transfer amount exceeds allowance",
+  "toZeroAddress": "ERC20: transfer to the zero address",
+  "engineNotStart": "Upgrade has not started yet. Cannot reset the engine address!",
+  "engineStart": "Upgrade has started. Cannot set the engine address again!",
+  "onlyEngine": "V2 can only be minted by the upgrade swap engine.",
+  "strictOwnership": "There must be an owner",
+  "strictDefaultManager": "Cannot renounce the admin role"
+}

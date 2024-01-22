@@ -1,0 +1,12 @@
+{
+    "extends":  "solhint:default",
+    "plugins": [],
+    "rules": {
+        "compiler-fixed": false,
+        "max-line-length": false,
+        "space-after-comma": false,
+        "var-name-mixedcase": false,
+        "const-name-snakecase": false,
+        "max-states-count": false
+    }
+}

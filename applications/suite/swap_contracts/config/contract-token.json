@@ -1,0 +1,14 @@
+{
+  "comment NAME": "token name",
+  "NAME": "V1",
+  "comment SYMBOL": "token symbol",
+  "SYMBOL": "TV1",
+  "comment DECIMALS": "token decimals",
+  "DECIMALS": 18,
+  "comment TOTAL_SUPPLY": "token total supply of 370 million",
+  "TOTAL_SUPPLY": "370000000",
+  "comment WHITELIST_MANAGER": "role of whitelist manager",
+  "WHITELIST_MANAGER": "WHITELIST_MANAGER_ROLE",
+  "comment WHITELISTED": "role of whitelist accounter",
+  "WHITELISTED": "WHITELISTED_ROLE"
+}

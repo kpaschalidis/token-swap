@@ -1,0 +1,20 @@
+.idea
+.env
+.eslintcache
+.DS_Store
+node_modules
+/bin
+/dist
+/coverage*
+/db
+bundle.js
+scTopics
+allFiredEvents
+
+#Buidler files
+cache
+artifacts
+
+# build files
+/build
+/typechain

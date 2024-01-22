@@ -1,0 +1,237 @@
+image: docker:19.03.12
+
+stages:
+  - package
+  - deploy
+
+variables:
+  GCP_REGISTRY: eu.gcr.io
+  SHARED_BASE_PATH: /builds/shared
+  GOOGLE_CREDENTIALS: $SHARED_BASE_PATH/$CI_PROJECT_PATH/google-credentials.json
+  CLOUD_SQL_PROXY_PATH: $SHARED_BASE_PATH/$CI_PROJECT_PATH/cloudsql/
+
+.vars:
+  variables:
+    UI_IMAGE: $GCP_REGISTRY/$GCP_PROJECT/ui
+
+# Login into docker registry
+.docker-registry-login: &docker-registry-login |
+  docker login -u _json_key --password-stdin https://$GCP_REGISTRY < $HOME/.docker/config.json
+
+.generate-gitconfig: &generate-gitconfig |
+  git config --global url."https://${GIT_TERRAFORM_USERNAME}:${GIT_TERRAFORM_TOKEN}@gitlab.com/kpaschal/devops/terraform-modules.git".insteadOf "https://gitlab.com/kpaschal/devops/terraform-modules.git"
+
+.install-jq: &install-jq |
+  apk --no-cache add jq
+
+##
+# Build docker images
+##
+
+.docker-build: &docker-build |
+  docker build --pull -f $DOCKERFILE --target $DOCKER_TARGET_BUILD_STAGE \
+    -t $PACKAGE_CONTAINER_BUILD_IMAGE_NAME:$CI_COMMIT_SHA \
+    -t $PACKAGE_CONTAINER_BUILD_IMAGE_NAME:latest-$CI_COMMIT_REF_SLUG \
+    ./
+
+.package: &package
+  stage: package
+  image: docker:19.03.12
+  script:
+    - echo "Package - $PACKAGE_CONTAINER_BUILD_IMAGE_NAME"
+    - echo "Dockerfile - $DOCKERFILE"
+    - *docker-registry-login
+    - *docker-build
+    - docker push $PACKAGE_CONTAINER_BUILD_IMAGE_NAME:$CI_COMMIT_SHA
+    - docker push $PACKAGE_CONTAINER_BUILD_IMAGE_NAME:latest-$CI_COMMIT_REF_SLUG
+
+##
+# Terraform
+##
+
+# Helper for using the terraform docker image in CI/CD jobs
+.terraform:
+  image: &terraform-image # https://hub.docker.com/r/hashicorp/terraform
+    name: hashicorp/terraform:1.1.0
+    entrypoint:
+      - "/usr/bin/env"
+      - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Define terraform variables as environment variables in order to pass arguments to terraform
+# so we don't have to define them separately for "terraform plan" and "terraform apply".
+#
+# Important: This anchor must always be executed before "terraform plan" and "terraform apply".
+# Otherwise the variables are not defined.
+.set-terraform-vars: &set-terraform-vars
+  - export TF_VAR_gcp_project=$GCP_PROJECT
+  - export TF_VAR_ui_image="${UI_IMAGE}:${CI_COMMIT_SHA}"
+
+# Export terraform environment variables and store them in the job artifacts
+# so that they can be easily accessed for debugging purposes.
+#
+# Important: Under no circumstances should secrets be exported!
+.export-terraform-vars: &export-terraform-vars
+  - export "TF_VAR_gcp_project=$GCP_PROJECT" >> terraform-vars.env
+  - export "TF_VAR_ui_image=${UI_IMAGE}:${CI_COMMIT_SHA}" >> terraform-vars.env
+  - echo "Content of terraform-vars.env:" && cat terraform-vars.env
+
+# Initialize terraform
+#
+# Important: This anchor must always be executed before "terraform plan" and/or "terraform apply".
+.terraform-init: &terraform-init
+  - export TERRAFORM_WORKSPACE=$(./extra/ci/get-terraform-workspace-name.sh)
+  - echo "TERRAFORM_WORKSPACE - $TERRAFORM_WORKSPACE"
+  - cd ./extra/terraform/application
+  - terraform init -input=false -backend-config="bucket=$TERRAFORM_BACKEND_GCS_BUCKET"
+  - terraform workspace list
+  - terraform workspace select $TERRAFORM_WORKSPACE || terraform workspace new $TERRAFORM_WORKSPACE
+  - terraform init -input=false -backend-config="bucket=$TERRAFORM_BACKEND_GCS_BUCKET"
+
+.terraform-plan: &terraform-plan |
+  terraform plan -input=false -parallelism=1 -var-file="${CI_PROJECT_DIR}/config/terraform/${CONFIG_FILE_ENVIRONMENT_NAME}.tfvars"
+
+.terraform-apply: &terraform-apply |
+  terraform apply -input=false -auto-approve -parallelism=1 -var-file="${CI_PROJECT_DIR}/config/terraform/${CONFIG_FILE_ENVIRONMENT_NAME}.tfvars"
+
+.deployment:
+  variables: &deployment-variables
+    UI_IMAGE: !reference [.vars, variables, UI_IMAGE]
+  script: &deployment-script
+    - *install-jq
+    - *generate-gitconfig
+    - *set-terraform-vars
+    - *export-terraform-vars
+    - *terraform-init
+    - *terraform-plan
+    - *terraform-apply
+  artifacts: &deployment-artifacts
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    when: always
+    expire_in: 1 week
+    public: false
+    paths: ["terraform-vars.env"]
+
+##
+# Restriction policies
+
+.only-ui-changes: &only-ui-changes
+  changes:
+    - suite-ui.dockerfile
+    - applications/ui/**/*
+    - extra/ci/**/*
+    - extra/terraform/**/*
+    - .gitlab-ci.yml
+    - package.json
+    - package-lock.json
+
+# references
+.only-test: &only-test
+  refs:
+    - test
+
+.only-staging: &only-staging
+  refs:
+    - staging
+
+.only-prod: &only-prod
+  refs:
+    - /^[0-9]+\.[0-9]+\.[0-9]+$/
+
+before_script:
+  - mkdir -p $HOME/.docker
+  - echo "$GCP_SERVICE_ACCOUNT_KEY_JSON" > $HOME/.docker/config.json
+  - mkdir -p $SHARED_BASE_PATH/$CI_PROJECT_PATH/
+  - echo "$GCP_SERVICE_ACCOUNT_KEY_JSON" > $GOOGLE_CREDENTIALS
+
+after_script:
+  - rm -rf $SHARED_BASE_PATH/$CI_PROJECT_PATH/
+
+##
+# Package stage
+package-ui-test:
+  variables:
+    PACKAGE_CONTAINER_BUILD_IMAGE_NAME: !reference [.vars, variables, UI_IMAGE]
+    DOCKERFILE: suite-ui.dockerfile
+    DOCKER_TARGET_BUILD_STAGE: production
+  environment:
+    name: test
+    action: prepare
+  <<: *package
+  only:
+    <<: *only-test
+
+package-ui-staging:
+  variables:
+    PACKAGE_CONTAINER_BUILD_IMAGE_NAME: !reference [.vars, variables, UI_IMAGE]
+    DOCKERFILE: suite-ui.dockerfile
+    DOCKER_TARGET_BUILD_STAGE: production
+  environment:
+    name: staging
+    action: prepare
+  <<: *package
+  only:
+    <<: *only-staging
+
+package-ui-prod:
+  variables:
+    PACKAGE_CONTAINER_BUILD_IMAGE_NAME: !reference [.vars, variables, UI_IMAGE]
+    DOCKERFILE: suite-ui.dockerfile
+    DOCKER_TARGET_BUILD_STAGE: production
+  environment:
+    name: prod
+    action: prepare
+  <<: *package
+  only:
+    <<: *only-prod
+
+##
+# Deploy stage
+deploy-test:
+  stage: deploy
+  variables:
+    <<: *deployment-variables
+    CONFIG_FILE_ENVIRONMENT_NAME: test
+  image: *terraform-image
+  script: *deployment-script
+  artifacts: *deployment-artifacts
+  environment:
+    name: test
+    action: start
+  resource_group: test
+  needs: ["package-ui-test"]
+  only:
+    <<: *only-test
+
+deploy-staging:
+  stage: deploy
+  variables:
+    <<: *deployment-variables
+    CONFIG_FILE_ENVIRONMENT_NAME: staging
+  image: *terraform-image
+  script: *deployment-script
+  artifacts: *deployment-artifacts
+  environment:
+    name: staging
+    action: start
+  resource_group: staging
+  needs: ["package-ui-staging"]
+  only:
+    <<: *only-staging
+
+deploy-prod:
+  stage: deploy
+  variables:
+    <<: *deployment-variables
+    CONFIG_FILE_ENVIRONMENT_NAME: prod
+  image: *terraform-image
+  script: *deployment-script
+  artifacts: *deployment-artifacts
+  environment:
+    name: prod
+    action: start
+  resource_group: prod
+  when: manual
+  allow_failure: false
+  needs: ["package-ui-prod"]
+  only:
+    <<: *only-prod

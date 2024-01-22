@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  suite-ui:
+    build:
+      context: .
+      dockerfile: suite-ui.dockerfile
+      target: production
+    environment:
+      PORT: 3001
+    ports:
+      - 3001:3001

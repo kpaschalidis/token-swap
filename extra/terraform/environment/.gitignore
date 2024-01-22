@@ -1,0 +1,4 @@
+output/gitlab-ci-service-account-*.json
+output/grafana-service-account-*.json
+config/*-secrets.tfvars
+tf-backend-encryption-key

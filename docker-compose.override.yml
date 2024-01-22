@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  suite-ui:
+    build:
+      target: development
+    volumes:
+      - ./applications/suite/ui:/src
+      - /src/node_modules
